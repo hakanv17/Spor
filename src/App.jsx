@@ -45,6 +45,11 @@ export default function App() {
     return parseInt(localStorage.getItem('pulse_height') || '172', 10);
   });
 
+  // Hakan'ın Hedefi: 'fat_loss' (Yağ Kaybı) veya 'muscle_gain' (Kas Gelişimi)
+  const [fitnessGoal, setFitnessGoal] = useState(() => {
+    return localStorage.getItem('pulse_fitness_goal') || 'fat_loss';
+  });
+
   // Haftanın Pazartesi Gününü Bulma Yardımcısı
   function getMonday(d) {
     const date = new Date(d);
@@ -71,7 +76,7 @@ export default function App() {
   const [waterLogs, setWaterLogs] = useState([]);
   const [workouts, setWorkouts] = useState([]);
   
-  // Yeni: Kilo ve Kalori Takip State'leri
+  // Kilo ve Kalori Takip State'leri
   const [weightLogs, setWeightLogs] = useState([]);
   const [calorieLogs, setCalorieLogs] = useState([]);
   
@@ -81,32 +86,27 @@ export default function App() {
   // Database Fallback Bayrağı
   const [dbFallback, setDbFallback] = useState(false);
 
-  // Form State'leri
+  // Form State'leri (Tarih seçimleri kaldırıldı, otomatik bugünün tarihini alırlar)
   const [sportForm, setSportForm] = useState({
     type: 'strength',
     duration: '',
     calories: '',
     distance: '',
-    date: getLocalDateString(),
     notes: ''
   });
 
   const [runForm, setRunForm] = useState({
     duration: '',
     distance: '',
-    date: getLocalDateString(),
     notes: ''
   });
 
   const [waterAmount, setWaterAmount] = useState('');
 
-  // Yeni: Kilo ve Kalori Form State'leri
+  // Kilo ve Kalori Form Girişleri
   const [weightInput, setWeightInput] = useState('');
-  const [weightDate, setWeightDate] = useState(getLocalDateString());
-
   const [calorieInput, setCalorieInput] = useState('');
   const [calorieNotes, setCalorieNotes] = useState('');
-  const [calorieDate, setCalorieDate] = useState(getLocalDateString());
   
   // Antrenman Modal State'leri
   const [isWorkoutModalOpen, setIsWorkoutModalOpen] = useState(false);
@@ -144,7 +144,7 @@ export default function App() {
     setLoading(true);
     let success = true;
 
-    // 1. Aktiviteleri Çek
+    // 1. Egzersizleri Çek
     try {
       const { data, error } = await supabase
         .from('activities')
@@ -384,7 +384,6 @@ export default function App() {
   // Güncel Ağırlık: Kaydedilmiş son kilo kaydı, yoksa varsayılan olarak 98kg
   const currentWeight = useMemo(() => {
     if (weightLogs.length > 0) {
-      // Tarihe göre sıralı olduğundan ilk eleman en son eklenendir
       return parseFloat(weightLogs[0].weight);
     }
     return 98.0;
@@ -404,6 +403,24 @@ export default function App() {
     return { text: 'Obez (Dikkat Edilmeli)', color: '#EF4444' };
   }, [currentBMI]);
 
+  // BMR (Bazal Metabolizma Hızı) ve TDEE (Günlük Harcanan Enerji) Hesaplaması (Erkek, Yaş 30)
+  const bmrVal = useMemo(() => {
+    return Math.round(10 * currentWeight + 6.25 * userHeight - 5 * 30 + 5);
+  }, [currentWeight, userHeight]);
+
+  const tdeeVal = useMemo(() => {
+    // Hafif aktif katsayı: 1.375
+    return Math.round(bmrVal * 1.375);
+  }, [bmrVal]);
+
+  // Diyet Hedefine Göre Günlük Kalori Limitleri
+  const calorieGoalFatLoss = useMemo(() => tdeeVal - 500, [tdeeVal]);
+  const calorieGoalMuscleGain = useMemo(() => tdeeVal + 300, [tdeeVal]);
+
+  const activeCalorieGoal = useMemo(() => {
+    return fitnessGoal === 'fat_loss' ? calorieGoalFatLoss : calorieGoalMuscleGain;
+  }, [fitnessGoal, calorieGoalFatLoss, calorieGoalMuscleGain]);
+
   // Egzersiz Süresi Değiştiğinde Ağırlığa Dayalı Kalori Yakım Canlı Hesaplaması
   useEffect(() => {
     if (sportForm.duration) {
@@ -418,16 +435,15 @@ export default function App() {
           case 'yoga': met = 2.5; break;
           default: met = 5.0;
         }
-        // Kalori Formülü (Ağırlık bazlı): MET * 3.5 * Kilo / 200 * Süre
         const estCalories = Math.round(met * 3.5 * currentWeight / 200 * dur);
         setSportForm((prev) => ({ ...prev, calories: estCalories.toString() }));
       }
     }
   }, [sportForm.duration, sportForm.type, currentWeight]);
 
-  // --- 7. Veri Ekleme & Silme İşlemleri ---
+  // --- 7. Veri Ekleme & Silme İşlemleri (Otomatik Tarihli) ---
 
-  // Kilo Kaydı Ekleme
+  // Kilo Kaydı Ekleme (Tarih otomatik bugünün tarihidir)
   const handleAddWeight = async (e) => {
     e.preventDefault();
     const wVal = parseFloat(weightInput);
@@ -436,10 +452,11 @@ export default function App() {
       return;
     }
 
+    const todayStr = getLocalDateString();
     const newLog = {
       user_id: userId,
       weight: wVal,
-      date: weightDate
+      date: todayStr
     };
 
     if (!dbFallback) {
@@ -453,7 +470,7 @@ export default function App() {
         setWeightLogs((prev) => [data[0], ...prev]);
         showToast('Kilo kaydı Supabase\'e eklendi.');
       } catch (err) {
-        console.error('Weight insert to Supabase failed, using fallback:', err);
+        console.error('Weight insert failed, using fallback:', err);
         saveWeightToLocal(newLog);
       }
     } else {
@@ -467,10 +484,10 @@ export default function App() {
     const updated = [localW, ...weightLogs];
     setWeightLogs(updated);
     localStorage.setItem(`pulse_fallback_weight_${userId}`, JSON.stringify(updated));
-    showToast('Kilo kaydı tarayıcı hafızasına kaydedildi.');
+    showToast('Kilo kaydı yerel hafızaya kaydedildi.');
   };
 
-  // Besin Kalorisi Ekleme
+  // Besin Kalorisi Ekleme (Tarih otomatik bugünün tarihidir)
   const handleAddCalorie = async (e) => {
     e.preventDefault();
     const cVal = parseInt(calorieInput, 10);
@@ -479,11 +496,12 @@ export default function App() {
       return;
     }
 
+    const todayStr = getLocalDateString();
     const newLog = {
       user_id: userId,
       amount: cVal,
       notes: calorieNotes || 'Öğün/Atıştırmalık',
-      date: calorieDate
+      date: todayStr
     };
 
     if (!dbFallback) {
@@ -515,17 +533,18 @@ export default function App() {
     showToast('Kalori kaydı yerel hafızaya kaydedildi.');
   };
 
-  // Egzersiz Kaydı Ekleme (Ağırlık bazlı MET kalori hesaplı)
+  // Egzersiz Kaydı Ekleme (Tarih otomatik bugünün tarihidir)
   const handleAddSport = async (e) => {
     e.preventDefault();
     if (!sportForm.duration) {
-      showToast('Lütfen süre girin.', 'error');
+      showToast('Lütfen egzersiz süresi girin.', 'error');
       return;
     }
 
     const durationInt = parseInt(sportForm.duration, 10);
     const caloriesInt = sportForm.calories ? parseInt(sportForm.calories, 10) : Math.round(durationInt * 7.5);
     const distanceNum = sportForm.distance ? parseFloat(sportForm.distance) : null;
+    const todayStr = getLocalDateString();
 
     const newActivity = {
       user_id: userId,
@@ -533,7 +552,7 @@ export default function App() {
       duration: durationInt,
       calories: caloriesInt,
       distance: distanceNum,
-      date: sportForm.date,
+      date: todayStr,
       notes: sportForm.notes
     };
 
@@ -548,7 +567,7 @@ export default function App() {
         setActivities((prev) => [data[0], ...prev]);
         showToast('Egzersiz kaydı eklendi.');
       } catch (err) {
-        console.error('Supabase insert failed:', err);
+        console.error('Supabase activity insert failed:', err);
         saveActivityToLocal(newActivity);
       }
     } else {
@@ -560,12 +579,19 @@ export default function App() {
       duration: '',
       calories: '',
       distance: '',
-      date: getLocalDateString(),
       notes: ''
     });
   };
 
-  // Koşu Kaydı Ekleme (Gelişmiş Formül: Mesafe * Kilo * 1.036 ile tam kalori hesaplar)
+  const saveActivityToLocal = (newAct) => {
+    const localAct = { ...newAct, id: 'local_' + Date.now(), created_at: new Date().toISOString() };
+    const updated = [localAct, ...activities];
+    setActivities(updated);
+    localStorage.setItem(`pulse_fallback_activities_${userId}`, JSON.stringify(updated));
+    showToast('Egzersiz tarayıcı hafızasına kaydedildi.');
+  };
+
+  // Koşu Kaydı Ekleme (Tarih otomatik bugünün tarihidir, kalori mesafeye göre hesaplanır)
   const handleAddRun = async (e) => {
     e.preventDefault();
     if (!runForm.duration || !runForm.distance) {
@@ -575,9 +601,8 @@ export default function App() {
 
     const durationInt = parseInt(runForm.duration, 10);
     const distanceNum = parseFloat(runForm.distance);
-    
-    // Altın Standart Koşu Kalorisi Formülü: Mesafe (km) * Ağırlık (kg) * 1.036
     const caloriesInt = Math.round(distanceNum * currentWeight * 1.036);
+    const todayStr = getLocalDateString();
 
     const newActivity = {
       user_id: userId,
@@ -585,7 +610,7 @@ export default function App() {
       duration: durationInt,
       calories: caloriesInt,
       distance: distanceNum,
-      date: runForm.date,
+      date: todayStr,
       notes: runForm.notes
     };
 
@@ -600,7 +625,7 @@ export default function App() {
         setActivities((prev) => [data[0], ...prev]);
         showToast('Koşu kaydı eklendi.');
       } catch (err) {
-        console.error('Supabase insert failed:', err);
+        console.error('Supabase run insert failed:', err);
         saveActivityToLocal(newActivity);
       }
     } else {
@@ -610,7 +635,6 @@ export default function App() {
     setRunForm({
       duration: '',
       distance: '',
-      date: getLocalDateString(),
       notes: ''
     });
   };
@@ -693,6 +717,78 @@ export default function App() {
       description: '',
       timeOfDay: '08:00'
     });
+  };
+
+  const saveWorkoutToLocal = (newWork) => {
+    const localWork = { ...newWork, id: 'local_work_' + Date.now(), created_at: new Date().toISOString() };
+    const updated = [...workouts, localWork];
+    setWorkouts(updated);
+    localStorage.setItem(`pulse_fallback_workouts_${userId}`, JSON.stringify(updated));
+    showToast('Antrenman yerel takvime kaydedildi.');
+  };
+
+  const handleToggleWorkout = async (id, isCompleted) => {
+    setWorkouts((prev) =>
+      prev.map((w) => (w.id === id ? { ...w, is_completed: !isCompleted } : w))
+    );
+
+    const targetIdStr = String(id);
+    if (!dbFallback && !targetIdStr.startsWith('local_')) {
+      try {
+        const { error } = await supabase
+          .from('workouts')
+          .update({ is_completed: !isCompleted })
+          .eq('id', id);
+
+        if (error) throw error;
+        showToast('Antrenman durumu güncellendi.');
+      } catch (err) {
+        console.error('Supabase update failed:', err);
+        updateWorkoutLocal(id, !isCompleted);
+      }
+    } else {
+      updateWorkoutLocal(id, !isCompleted);
+    }
+  };
+
+  const updateWorkoutLocal = (id, newCompletedState) => {
+    const updated = workouts.map((w) => (w.id === id ? { ...w, is_completed: newCompletedState } : w));
+    localStorage.setItem(`pulse_fallback_workouts_${userId}`, JSON.stringify(updated));
+  };
+
+  const handleDeleteItem = async (table, id) => {
+    const targetIdStr = String(id);
+    if (!dbFallback && !targetIdStr.startsWith('local_')) {
+      try {
+        const { error } = await supabase.from(table).delete().eq('id', id);
+        if (error) throw error;
+        showToast('Kayıt silindi.');
+      } catch (err) {
+        console.error('Supabase delete failed:', err);
+      }
+    }
+
+    if (table === 'activities') {
+      const updated = activities.filter((item) => item.id !== id);
+      setActivities(updated);
+      localStorage.setItem(`pulse_fallback_activities_${userId}`, JSON.stringify(updated));
+    } else if (table === 'water_logs') {
+      const updated = waterLogs.filter((item) => item.id !== id);
+      setWaterLogs(updated);
+      localStorage.setItem(`pulse_fallback_water_${userId}`, JSON.stringify(updated));
+    } else if (table === 'workouts') {
+      const updated = workouts.filter((item) => item.id !== id);
+      setWorkouts(updated);
+      localStorage.setItem(`pulse_fallback_workouts_${userId}`, JSON.stringify(updated));
+    } else if (table === 'weight_logs') {
+      const updated = weightLogs.filter((item) => item.id !== id);
+      setWeightLogs(updated);
+      localStorage.setItem(`pulse_fallback_weight_${userId}`, JSON.stringify(updated));
+    } else if (table === 'calorie_logs') {
+      const updated = calorieLogs.filter((item) => item.id !== id);
+      setCalorieLogs(updated);
+      localStorage.setItem(`pulse_fallback_calories_${userId}`, JSON.stringify(updated));
+    }
   };
 
   // --- 8. İstatistik & Dashboard Hesaplamaları ---
@@ -786,10 +882,9 @@ export default function App() {
 
   // Kilo Trend Grafik Verisi (Kronolojik)
   const weightTrendChartData = useMemo(() => {
-    // Grafikte göstermek için tersine çeviriyoruz (en eskiden en yeniye)
     return [...weightLogs]
       .reverse()
-      .slice(-10) // Son 10 kaydı göster
+      .slice(-10)
       .map((log) => {
         const d = new Date(log.date);
         return {
@@ -853,7 +948,8 @@ export default function App() {
     localStorage.setItem('pulse_height', userHeight.toString());
     localStorage.setItem('pulse_water_goal', dailyWaterGoal.toString());
     localStorage.setItem('pulse_running_goal', dailyRunningGoal.toString());
-    showToast('Ayarlar kaydedildi.');
+    localStorage.setItem('pulse_fitness_goal', fitnessGoal);
+    showToast('Ayarlar başarıyla kaydedildi.');
   };
 
   const livePace = useMemo(() => {
@@ -947,7 +1043,7 @@ export default function App() {
           </ul>
         </nav>
 
-        {/* Profil Kartı (Hakan) */}
+        {/* Profil Kartı */}
         <div className="profile-badge">
           <div className="profile-avatar">H</div>
           <div className="profile-details">
@@ -957,7 +1053,7 @@ export default function App() {
         </div>
       </aside>
 
-      {/* 2. Alt Menü (Mobil) */}
+      {/* 2. Alt Menü (Mobil) - Koşu Düğmesi Eklendi */}
       <nav className="bottom-nav">
         <button
           className={`mobile-nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
@@ -972,6 +1068,13 @@ export default function App() {
         >
           <Activity />
           <span>Spor</span>
+        </button>
+        <button
+          className={`mobile-nav-btn ${activeTab === 'running' ? 'active' : ''}`}
+          onClick={() => setActiveTab('running')}
+        >
+          <Flame />
+          <span>Koşu</span>
         </button>
         <button
           className={`mobile-nav-btn ${activeTab === 'kiloCalorie' ? 'active' : ''}`}
@@ -1015,7 +1118,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Global Hafta Navigasyon Barı */}
+        {/* Global Hafta Navigasyon Barı (Boy verisi kaldırıldı, hedef konuldu) */}
         {(activeTab === 'calendar' || activeTab === 'dashboard' || activeTab === 'kiloCalorie') && (
           <div className="week-nav-bar">
             <div className="week-nav-buttons">
@@ -1037,8 +1140,8 @@ export default function App() {
                 <Copy size={14} /> Geçen Haftadan Kopyala
               </button>
             )}
-            {activeTab === 'kiloCalorie' && (
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Boy: <strong>{userHeight} cm</strong></span>
+            {(activeTab === 'kiloCalorie' || activeTab === 'dashboard') && (
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Diyet Hedefi: <strong>{fitnessGoal === 'fat_loss' ? 'Yağ Kaybı' : 'Kas Gelişimi'}</strong></span>
             )}
           </div>
         )}
@@ -1048,15 +1151,34 @@ export default function App() {
         {/* TAB 1: DASHBOARD */}
         {activeTab === 'dashboard' && (
           <div>
+            {/* Kalori Limiti Aşım Uyarısı (Warn Hakan dynamically if he exceeds calorie limits) */}
+            {todayCalorieIntake > activeCalorieGoal && (
+              <div className="glass-card" style={{ background: 'rgba(239, 68, 68, 0.08)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#EF4444', padding: '1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                <Info size={20} />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>⚠️ Günlük Kalori Limiti Aşıldı!</strong>
+                  <span style={{ fontSize: '0.8rem', opacity: 0.9 }}>
+                    Bugünkü kalori hedefinizi ({activeCalorieGoal} kcal) tam <strong>+{todayCalorieIntake - activeCalorieGoal} kcal</strong> aştınız.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Dashboard 4 Temel Stat Kartı */}
             <div className="dashboard-grid">
               <div className="glass-card stat-card">
                 <div className="icon-container">
-                  <Activity size={18} />
+                  <Flame size={18} />
                 </div>
                 <div className="stat-info">
-                  <span className="stat-label">Haftalık Egzersiz</span>
-                  <span className="stat-value">{weeklyTotalActiveMinutes} dk</span>
-                  <span className="stat-sub">Seçili haftanın toplamı</span>
+                  <span className="stat-label">Kalori Dengesi (Bugün)</span>
+                  <span className="stat-value">{todayCalorieIntake} / {activeCalorieGoal} kcal</span>
+                  <span className="stat-sub">
+                    {todayCalorieIntake > activeCalorieGoal 
+                      ? `Limit Aşıldı: +${todayCalorieIntake - activeCalorieGoal} kcal`
+                      : `${activeCalorieGoal - todayCalorieIntake} kcal kaldı`
+                    }
+                  </span>
                 </div>
               </div>
 
@@ -1065,7 +1187,7 @@ export default function App() {
                   <Droplet size={18} />
                 </div>
                 <div className="stat-info">
-                  <span className="stat-label">Bugünkü Su</span>
+                  <span className="stat-label">Su Tüketimi (Bugün)</span>
                   <span className="stat-value">{todayWater} / {dailyWaterGoal} ml</span>
                   <span className="stat-sub">Hedef: {dailyWaterGoal} ml</span>
                 </div>
@@ -1073,27 +1195,28 @@ export default function App() {
 
               <div className="glass-card stat-card">
                 <div className="icon-container">
-                  <User size={18} />
+                  <TrendingUp size={18} />
                 </div>
                 <div className="stat-info">
-                  <span className="stat-label">Ağırlık & BMI</span>
+                  <span className="stat-label">Kilo & Analiz</span>
                   <span className="stat-value">{currentWeight.toFixed(1)} kg</span>
-                  <span className="stat-sub" style={{ color: bmiStatus.color, fontWeight: 600 }}>VKİ: {currentBMI} ({bmiStatus.text})</span>
+                  <span className="stat-sub" style={{ color: bmiStatus.color, fontWeight: 700 }}>VKİ: {currentBMI} ({bmiStatus.text})</span>
                 </div>
               </div>
 
               <div className="glass-card stat-card">
                 <div className="icon-container">
-                  <Flame size={18} />
+                  <Activity size={18} />
                 </div>
                 <div className="stat-info">
-                  <span className="stat-label">Bugünkü Net Kalori</span>
-                  <span className="stat-value">{todayCalorieIntake - todayCalorieBurned} kcal</span>
-                  <span className="stat-sub">Alınan: {todayCalorieIntake} | Yakılan: {todayCalorieBurned}</span>
+                  <span className="stat-label">Haftalık Egzersiz</span>
+                  <span className="stat-value">{weeklyTotalActiveMinutes} dk</span>
+                  <span className="stat-sub">Hedeflenen antrenmanlar</span>
                 </div>
               </div>
             </div>
 
+            {/* Grafikler */}
             <div className="dashboard-grid" style={{ marginTop: '1.25rem' }}>
               <div className="glass-card chart-card">
                 <div className="chart-header">
@@ -1168,62 +1291,6 @@ export default function App() {
                 </div>
               </div>
             </div>
-
-            {/* Son Aktiviteler */}
-            <div className="glass-card" style={{ marginTop: '1.25rem' }}>
-              <div className="log-header">
-                <span className="log-title">Son Aktiviteler</span>
-                <button className="btn btn-secondary" onClick={() => setActiveTab('sports')} style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem' }}>
-                  Tümü
-                </button>
-              </div>
-              {activities.length === 0 ? (
-                <div className="empty-state">
-                  <Activity size={24} />
-                  <span className="empty-title">Kayıt Bulunmamaktadır</span>
-                </div>
-              ) : (
-                <div className="log-list" style={{ maxHeight: '200px' }}>
-                  {activities.slice(0, 3).map((act) => (
-                    <div key={act.id} className="log-item">
-                      <div className="log-details">
-                        <div className="icon-container" style={{ width: '32px', height: '32px' }}>
-                          {act.type === 'running' ? <Flame size={14} /> : <Activity size={14} />}
-                        </div>
-                        <div className="log-meta">
-                          <span className="log-name">
-                            {act.type === 'running' && 'Koşu'}
-                            {act.type === 'strength' && 'Ağırlık & Kuvvet'}
-                            {act.type === 'cycling' && 'Bisiklet'}
-                            {act.type === 'swimming' && 'Yüzme'}
-                            {act.type === 'walking' && 'Yürüyüş'}
-                            {act.type === 'yoga' && 'Yoga & Pilates'}
-                            {act.type === 'other' && 'Diğer Spor'}
-                          </span>
-                          <span className="log-time">{new Date(act.date).toLocaleDateString('tr-TR')}</span>
-                        </div>
-                      </div>
-                      <div className="log-stats">
-                        <div className="log-stat">
-                          <span className="log-stat-val">{act.duration} dk</span>
-                          <span className="log-stat-lbl">Süre</span>
-                        </div>
-                        {act.distance && (
-                          <div className="log-stat">
-                            <span className="log-stat-val">{parseFloat(act.distance).toFixed(1)} km</span>
-                            <span className="log-stat-lbl">Mesafe</span>
-                          </div>
-                        )}
-                        <div className="log-stat">
-                          <span className="log-stat-val">{act.calories} kcal</span>
-                          <span className="log-stat-lbl">Kalori</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         )}
 
@@ -1282,16 +1349,6 @@ export default function App() {
                     />
                   </div>
                 ) : null}
-
-                <div className="form-group">
-                  <label>Tarih</label>
-                  <input
-                    type="date"
-                    value={sportForm.date}
-                    onChange={(e) => setSportForm({ ...sportForm, date: e.target.value })}
-                    required
-                  />
-                </div>
 
                 <div className="form-group">
                   <label>Notlar</label>
@@ -1504,16 +1561,6 @@ export default function App() {
                 )}
 
                 <div className="form-group">
-                  <label>Tarih</label>
-                  <input
-                    type="date"
-                    value={runForm.date}
-                    onChange={(e) => setRunForm({ ...runForm, date: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
                   <label>Notlar</label>
                   <textarea
                     placeholder="Hava, tempo notları..."
@@ -1593,13 +1640,13 @@ export default function App() {
           </div>
         )}
 
-        {/* YENİ TAB: KİLO & KALORİ (DİYET) YÖNETİMİ */}
+        {/* TAB 5: KİLO & KALORİ (DİYET) YÖNETİMİ (Boy verileri kaldırıldı, hedefler entegre edildi) */}
         {activeTab === 'kiloCalorie' && (
           <div className="feature-view-grid">
-            {/* Sol Sütun: Kayıt Formları & BMI Özeti */}
+            {/* Sol Sütun: Analiz & Kayıt Formları */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               
-              {/* BMI & Profil Özeti */}
+              {/* BMI & BMR & TDEE Hedef Analiz Kartı */}
               <div className="glass-card">
                 <h3 className="form-title" style={{ borderBottom: '1px solid var(--border-glass)', paddingBottom: '0.5rem', color: 'var(--accent-color)' }}><User size={16} /> Vücut Analizi (Hakan)</h3>
                 <div style={{ display: 'flex', justifyContent: 'space-between', margin: '1rem 0' }}>
@@ -1618,7 +1665,6 @@ export default function App() {
                     <span>Durum:</span>
                     <span style={{ color: bmiStatus.color, fontWeight: 700 }}>{bmiStatus.text}</span>
                   </div>
-                  {/* BMI Progress bar */}
                   <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden', display: 'flex' }}>
                     <div style={{ width: '18.5%', background: '#60A5FA' }} title="Zayıf (<18.5)"></div>
                     <div style={{ width: '6.5%', background: '#10B981' }} title="Normal (18.5-25)"></div>
@@ -1632,33 +1678,38 @@ export default function App() {
                     <span>40+</span>
                   </div>
                 </div>
+
+                {/* Kas Gelişimi & Yağ Kaybı Enerji Hesapları */}
+                <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '1rem', marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div className="flex-between" style={{ fontSize: '0.8rem' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Metabolizma Hızı (BMR):</span>
+                    <strong>{bmrVal} kcal</strong>
+                  </div>
+                  <div className="flex-between" style={{ fontSize: '0.8rem' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Günlük İhtiyaç (TDEE):</span>
+                    <strong>{tdeeVal} kcal</strong>
+                  </div>
+                  <div className="flex-between" style={{ fontSize: '0.8rem', borderTop: '1px dotted var(--border-glass)', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
+                    <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>Diyet Hedefi ({fitnessGoal === 'fat_loss' ? 'Yağ Kaybı' : 'Kas Gelişimi'}):</span>
+                    <strong style={{ color: 'var(--accent-color)', fontSize: '1rem' }}>{activeCalorieGoal} kcal / gün</strong>
+                  </div>
+                </div>
               </div>
 
-              {/* Kilo Kayıt Formu */}
+              {/* Kilo Kayıt Formu (Tarih seçimi kaldırıldı) */}
               <div className="glass-card">
                 <h3 className="form-title"><Plus size={16} /> Yeni Kilo Kaydı</h3>
                 <form onSubmit={handleAddWeight}>
-                  <div className="form-grid">
-                    <div className="form-group">
-                      <label>Kilo (kg)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        placeholder="Örn: 98.0"
-                        value={weightInput}
-                        onChange={(e) => setWeightInput(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Tarih</label>
-                      <input
-                        type="date"
-                        value={weightDate}
-                        onChange={(e) => setWeightDate(e.target.value)}
-                        required
-                      />
-                    </div>
+                  <div className="form-group">
+                    <label>Kilo (kg)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      placeholder="Örn: 98.0"
+                      value={weightInput}
+                      onChange={(e) => setWeightInput(e.target.value)}
+                      required
+                    />
                   </div>
                   <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.25rem' }}>
                     Kilo Kaydet
@@ -1666,41 +1717,32 @@ export default function App() {
                 </form>
               </div>
 
-              {/* Kalori Alımı Kayıt Formu */}
+              {/* Kalori Alımı Kayıt Formu (Tarih seçimi kaldırıldı) */}
               <div className="glass-card">
                 <h3 className="form-title"><Plus size={16} /> Öğün Kalorisi Kaydet</h3>
                 <form onSubmit={handleAddCalorie}>
-                  <div className="form-group">
-                    <label>Kalori (kcal)</label>
-                    <input
-                      type="number"
-                      placeholder="Örn: 500"
-                      value={calorieInput}
-                      onChange={(e) => setCalorieInput(e.target.value)}
-                      required
-                    />
-                  </div>
                   <div className="form-grid">
+                    <div className="form-group">
+                      <label>Kalori (kcal)</label>
+                      <input
+                        type="number"
+                        placeholder="Örn: 500"
+                        value={calorieInput}
+                        onChange={(e) => setCalorieInput(e.target.value)}
+                        required
+                      />
+                    </div>
                     <div className="form-group">
                       <label>Açıklama / Öğün</label>
                       <input
                         type="text"
-                        placeholder="Örn: Öğle Yemeği, Kahve vb."
+                        placeholder="Örn: Kahvaltı, Akşam yemeği vb."
                         value={calorieNotes}
                         onChange={(e) => setCalorieNotes(e.target.value)}
                       />
                     </div>
-                    <div className="form-group">
-                      <label>Tarih</label>
-                      <input
-                        type="date"
-                        value={calorieDate}
-                        onChange={(e) => setCalorieDate(e.target.value)}
-                        required
-                      />
-                    </div>
                   </div>
-                  <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.25rem' }}>
+                  <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }}>
                     Kalori Kaydet
                   </button>
                 </form>
@@ -1797,7 +1839,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 5: WEEKLY CALENDAR FULL WIDTH GRID & MOVING-DRAG-AND-DROP */}
+        {/* TAB 6: WEEKLY CALENDAR FULL WIDTH GRID & MOVING-DRAG-AND-DROP */}
         {activeTab === 'calendar' && (
           <div className="calendar-layout">
             <div className="calendar-view-grid">
@@ -1945,7 +1987,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 6: SETTINGS */}
+        {/* TAB 7: SETTINGS (Kas gelişimi & Yağ kaybı hedefleri entegre edildi) */}
         {activeTab === 'settings' && (
           <div style={{ maxWidth: '500px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div className="glass-card">
@@ -1957,6 +1999,20 @@ export default function App() {
                 </div>
 
                 <div className="form-group">
+                  <label>Spor ve Diyet Hedefi</label>
+                  <select
+                    value={fitnessGoal}
+                    onChange={(e) => setFitnessGoal(e.target.value)}
+                  >
+                    <option value="fat_loss">Yağ Kaybı (Kalori Açığı: TDEE - 500 kcal)</option>
+                    <option value="muscle_gain">Kas Gelişimi (Kalori Fazlası: TDEE + 300 kcal)</option>
+                  </select>
+                  <small style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                    Bu hedefe göre BMR ve TDEE değerlerinizden otomatik kalori limiti hesaplanır.
+                  </small>
+                </div>
+
+                <div className="form-group" style={{ marginTop: '0.5rem' }}>
                   <label>Boy Uzunluğu (cm)</label>
                   <input
                     type="number"
@@ -1990,8 +2046,8 @@ export default function App() {
                   </div>
                 </div>
 
-                <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }}>
-                  Kaydet
+                <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.75rem' }}>
+                  Ayarları Kaydet
                 </button>
               </form>
             </div>
