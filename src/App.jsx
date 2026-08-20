@@ -935,6 +935,48 @@ export default function App() {
       .reduce((sum, act) => sum + (act.distance ? parseFloat(act.distance) : 0), 0);
   }, [activities, weekDaysList]);
 
+  // Dashboard Kart Arka Plan Stilleri (Kırmızıdan Yeşile Dinamik İlerleme)
+  const calorieCardStyle = useMemo(() => {
+    if (todayCalorieIntake > activeCalorieGoal) {
+      return { background: 'rgba(239, 68, 68, 0.08)', borderColor: 'rgba(239, 68, 68, 0.25)' };
+    }
+    if (todayCalorieIntake > 0) {
+      return { background: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.25)' };
+    }
+    return {};
+  }, [todayCalorieIntake, activeCalorieGoal]);
+
+  const waterCardStyle = useMemo(() => {
+    if (todayWater >= dailyWaterGoal) {
+      return { background: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.25)' };
+    }
+    if (todayWater >= dailyWaterGoal * 0.7) {
+      return { background: 'rgba(16, 185, 129, 0.04)', borderColor: 'rgba(16, 185, 129, 0.15)' };
+    }
+    return { background: 'rgba(239, 68, 68, 0.04)', borderColor: 'rgba(239, 68, 68, 0.15)' };
+  }, [todayWater, dailyWaterGoal]);
+
+  const bmiCardStyle = useMemo(() => {
+    if (currentBMI < 25) {
+      return { background: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.25)' };
+    }
+    if (currentBMI < 30) {
+      return { background: 'rgba(245, 158, 11, 0.08)', borderColor: 'rgba(245, 158, 11, 0.25)' };
+    }
+    return { background: 'rgba(239, 68, 68, 0.08)', borderColor: 'rgba(239, 68, 68, 0.25)' };
+  }, [currentBMI]);
+
+  const exerciseCardStyle = useMemo(() => {
+    // DSÖ Tavsiyesi: Haftalık en az 150 dk aktif egzersiz
+    if (weeklyTotalActiveMinutes >= 150) {
+      return { background: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.25)' };
+    }
+    if (weeklyTotalActiveMinutes >= 90) {
+      return { background: 'rgba(16, 185, 129, 0.04)', borderColor: 'rgba(16, 185, 129, 0.15)' };
+    }
+    return { background: 'rgba(239, 68, 68, 0.04)', borderColor: 'rgba(239, 68, 68, 0.15)' };
+  }, [weeklyTotalActiveMinutes]);
+
   const calendarDays = [
     { num: 1, name: 'Pazartesi' },
     { num: 2, name: 'Salı' },
@@ -1200,9 +1242,8 @@ export default function App() {
               </div>
             )}
 
-            {/* Dashboard 4 Temel Stat Kartı */}
             <div className="dashboard-grid">
-              <div className="glass-card stat-card">
+              <div className="glass-card stat-card" style={calorieCardStyle}>
                 <div className="icon-container">
                   <Flame size={18} />
                 </div>
@@ -1218,7 +1259,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="glass-card stat-card">
+              <div className="glass-card stat-card" style={waterCardStyle}>
                 <div className="icon-container">
                   <Droplet size={18} />
                 </div>
@@ -1229,7 +1270,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="glass-card stat-card">
+              <div className="glass-card stat-card" style={bmiCardStyle}>
                 <div className="icon-container">
                   <TrendingUp size={18} />
                 </div>
@@ -1240,7 +1281,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="glass-card stat-card">
+              <div className="glass-card stat-card" style={exerciseCardStyle}>
                 <div className="icon-container">
                   <Activity size={18} />
                 </div>
