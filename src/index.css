@@ -757,6 +757,17 @@ textarea {
   margin-top: 1.25rem;
 }
 
+/* Mobile Profile Badge */
+.mobile-profile-badge {
+  display: flex !important;
+}
+
+@media (min-width: 768px) {
+  .mobile-profile-badge {
+    display: none !important;
+  }
+}
+
 /* Profile Badge */
 .profile-badge {
   display: flex;

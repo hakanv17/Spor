@@ -1384,12 +1384,47 @@ export default function App() {
               {activeTab === 'settings' && 'Ayarlar'}
             </h2>
           </div>
-          <div className="flex-center" style={{ gap: '1rem' }}>
+          <div className="flex-center" style={{ gap: '0.65rem' }}>
             {dbFallback && (
               <span className="glass-card" style={{ padding: '0.4rem 0.65rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)', color: '#EF4444', borderRadius: '6px', fontWeight: 600 }}>
-                <Info size={12} /> Çevrimdışı Mod
+                <Info size={12} /> Çevrimdışı
               </span>
             )}
+            
+            <div 
+              className="mobile-profile-badge"
+              onClick={() => setActiveTab('settings')}
+              style={{
+                alignItems: 'center',
+                gap: '0.4rem',
+                cursor: 'pointer',
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid var(--border-glass)',
+                padding: '0.35rem 0.65rem',
+                borderRadius: '20px',
+                transition: 'background 0.2s'
+              }}
+            >
+              <div 
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  background: 'var(--accent-color)',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.7rem',
+                  fontWeight: 700
+                }}
+              >
+                H
+              </div>
+              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                {currentWeight.toFixed(1)} kg
+              </span>
+            </div>
           </div>
         </div>
 
