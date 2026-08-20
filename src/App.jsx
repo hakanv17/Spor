@@ -1327,7 +1327,7 @@ export default function App() {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Yakılan Kalori (kcal - Otomatik)</label>
+                    <label>Yakılan Kalori (kcal)</label>
                     <input
                       type="number"
                       placeholder="Kilonuza göre hesaplanır"
