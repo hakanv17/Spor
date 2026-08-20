@@ -447,137 +447,123 @@ export default function App() {
 
   // --- 7. Veri Ekleme & Silme İşlemleri (Otomatik Tarihli) ---
 
-  // Kilo Kaydı Ekleme (Tarih otomatik bugünün tarihidir)
   const handleAddWeight = async (e) => {
     e.preventDefault();
     const wVal = parseFloat(weightInput);
-    if (isNaN(wVal) || wVal <= 0) {
-      showToast('Lütfen geçerli bir kilo girin.', 'error');
-      return;
-    }
+    if (isNaN(wVal) || wVal <= 0) return;
 
     const todayStr = getLocalDateString();
+    const tempId = 'temp_w_' + Date.now();
     const newLog = {
+      id: tempId,
       user_id: userId,
       weight: wVal,
-      date: todayStr
+      date: todayStr,
+      created_at: new Date().toISOString()
     };
 
-    if (!dbFallback) {
-      try {
-        const { data, error } = await supabase
-          .from('weight_logs')
-          .insert([newLog])
-          .select();
-
-        if (error) throw error;
-        setWeightLogs((prev) => [data[0], ...prev]);
-        showToast('Kilo kaydı Supabase\'e eklendi.');
-      } catch (err) {
-        console.error('Weight insert failed, using fallback:', err);
-        saveWeightToLocal(newLog);
-      }
-    } else {
-      saveWeightToLocal(newLog);
-    }
+    // Optimistik olarak arayüzü anında güncelle
+    setWeightLogs((prev) => [newLog, ...prev]);
     setWeightInput('');
+
+    if (!dbFallback) {
+      supabase
+        .from('weight_logs')
+        .insert([{ user_id: userId, weight: wVal, date: todayStr }])
+        .select()
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('Weight insert failed, using fallback:', error);
+            saveWeightToLocalOffline(newLog);
+          } else if (data && data[0]) {
+            // Geçici ID'yi gerçek DB ID'si ile eşle
+            setWeightLogs((prev) => prev.map((item) => item.id === tempId ? data[0] : item));
+          }
+        });
+    } else {
+      saveWeightToLocalOffline(newLog);
+    }
   };
 
-  const saveWeightToLocal = (newW) => {
-    const localW = { ...newW, id: 'local_w_' + Date.now(), created_at: new Date().toISOString() };
-    const updated = [localW, ...weightLogs];
-    setWeightLogs(updated);
-    localStorage.setItem(`pulse_fallback_weight_${userId}`, JSON.stringify(updated));
-    showToast('Kilo kaydı yerel hafızaya kaydedildi.');
+  const saveWeightToLocalOffline = (newW) => {
+    const localW = { ...newW, id: 'local_w_' + Date.now() };
+    setWeightLogs((prev) => prev.map((item) => item.id === newW.id ? localW : item));
+    const stored = JSON.parse(localStorage.getItem(`pulse_fallback_weight_${userId}`) || '[]');
+    localStorage.setItem(`pulse_fallback_weight_${userId}`, JSON.stringify([localW, ...stored]));
   };
 
   // Besin Kalorisi Ekleme (Tarih otomatik bugünün tarihidir)
   const handleAddCalorie = async (e) => {
     e.preventDefault();
     const cVal = parseInt(calorieInput, 10);
-    if (isNaN(cVal) || cVal <= 0) {
-      showToast('Lütfen geçerli bir kalori miktarı girin.', 'error');
-      return;
-    }
+    if (isNaN(cVal) || cVal <= 0) return;
 
     const todayStr = getLocalDateString();
+    const tempId = 'temp_c_' + Date.now();
     const newLog = {
+      id: tempId,
       user_id: userId,
       amount: cVal,
       notes: calorieNotes || 'Öğün/Atıştırmalık',
-      date: todayStr
+      date: todayStr,
+      created_at: new Date().toISOString()
     };
 
-    if (!dbFallback) {
-      try {
-        const { data, error } = await supabase
-          .from('calorie_logs')
-          .insert([newLog])
-          .select();
-
-        if (error) throw error;
-        setCalorieLogs((prev) => [data[0], ...prev]);
-        showToast('Kalori alımı kaydedildi.');
-      } catch (err) {
-        console.error('Calorie insert failed, using fallback:', err);
-        saveCalorieToLocal(newLog);
-      }
-    } else {
-      saveCalorieToLocal(newLog);
-    }
+    // Optimistik olarak arayüzü anında güncelle
+    setCalorieLogs((prev) => [newLog, ...prev]);
     setCalorieInput('');
     setCalorieNotes('');
+
+    if (!dbFallback) {
+      supabase
+        .from('calorie_logs')
+        .insert([{ user_id: userId, amount: cVal, notes: newLog.notes, date: todayStr }])
+        .select()
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('Calorie insert failed, using fallback:', error);
+            saveCalorieToLocalOffline(newLog);
+          } else if (data && data[0]) {
+            setCalorieLogs((prev) => prev.map((item) => item.id === tempId ? data[0] : item));
+          }
+        });
+    } else {
+      saveCalorieToLocalOffline(newLog);
+    }
   };
 
-  const saveCalorieToLocal = (newC) => {
-    const localC = { ...newC, id: 'local_c_' + Date.now(), created_at: new Date().toISOString() };
-    const updated = [localC, ...calorieLogs];
-    setCalorieLogs(updated);
-    localStorage.setItem(`pulse_fallback_calories_${userId}`, JSON.stringify(updated));
-    showToast('Kalori kaydı yerel hafızaya kaydedildi.');
+  const saveCalorieToLocalOffline = (newC) => {
+    const localC = { ...newC, id: 'local_c_' + Date.now() };
+    setCalorieLogs((prev) => prev.map((item) => item.id === newC.id ? localC : item));
+    const stored = JSON.parse(localStorage.getItem(`pulse_fallback_calories_${userId}`) || '[]');
+    localStorage.setItem(`pulse_fallback_calories_${userId}`, JSON.stringify([localC, ...stored]));
   };
 
   // Egzersiz Kaydı Ekleme (Tarih otomatik bugünün tarihidir)
   const handleAddSport = async (e) => {
     e.preventDefault();
-    if (!sportForm.duration) {
-      showToast('Lütfen egzersiz süresi girin.', 'error');
-      return;
-    }
+    if (!sportForm.duration) return;
 
     const durationInt = parseInt(sportForm.duration, 10);
     const caloriesInt = sportForm.calories ? parseInt(sportForm.calories, 10) : Math.round(durationInt * 7.5);
     const distanceNum = sportForm.distance ? parseFloat(sportForm.distance) : null;
     const todayStr = getLocalDateString();
+    const tempId = 'temp_act_' + Date.now();
 
     const newActivity = {
+      id: tempId,
       user_id: userId,
       type: sportForm.type,
       duration: durationInt,
       calories: caloriesInt,
       distance: distanceNum,
       date: todayStr,
-      notes: sportForm.notes
+      notes: sportForm.notes,
+      created_at: new Date().toISOString()
     };
 
-    if (!dbFallback) {
-      try {
-        const { data, error } = await supabase
-          .from('activities')
-          .insert([newActivity])
-          .select();
-
-        if (error) throw error;
-        setActivities((prev) => [data[0], ...prev]);
-        showToast('Egzersiz kaydı eklendi.');
-      } catch (err) {
-        console.error('Supabase activity insert failed:', err);
-        saveActivityToLocal(newActivity);
-      }
-    } else {
-      saveActivityToLocal(newActivity);
-    }
-
+    // Optimistik olarak arayüzü anında güncelle
+    setActivities((prev) => [newActivity, ...prev]);
     setSportForm({
       type: 'strength',
       duration: '',
@@ -585,135 +571,145 @@ export default function App() {
       distance: '',
       notes: ''
     });
+
+    if (!dbFallback) {
+      supabase
+        .from('activities')
+        .insert([{ user_id: userId, type: newActivity.type, duration: durationInt, calories: caloriesInt, distance: distanceNum, date: todayStr, notes: newActivity.notes }])
+        .select()
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('Activity insert failed, using fallback:', error);
+            saveActivityToLocalOffline(newActivity);
+          } else if (data && data[0]) {
+            setActivities((prev) => prev.map((item) => item.id === tempId ? data[0] : item));
+          }
+        });
+    } else {
+      saveActivityToLocalOffline(newActivity);
+    }
   };
 
-  const saveActivityToLocal = (newAct) => {
-    const localAct = { ...newAct, id: 'local_' + Date.now(), created_at: new Date().toISOString() };
-    const updated = [localAct, ...activities];
-    setActivities(updated);
-    localStorage.setItem(`pulse_fallback_activities_${userId}`, JSON.stringify(updated));
-    showToast('Egzersiz tarayıcı hafızasına kaydedildi.');
+  const saveActivityToLocalOffline = (newAct) => {
+    const localAct = { ...newAct, id: 'local_' + Date.now() };
+    setActivities((prev) => prev.map((item) => item.id === newAct.id ? localAct : item));
+    const stored = JSON.parse(localStorage.getItem(`pulse_fallback_activities_${userId}`) || '[]');
+    localStorage.setItem(`pulse_fallback_activities_${userId}`, JSON.stringify([localAct, ...stored]));
   };
 
   // Koşu Kaydı Ekleme (Tarih otomatik bugünün tarihidir, kalori mesafeye göre hesaplanır)
   const handleAddRun = async (e) => {
     e.preventDefault();
-    if (!runForm.duration || !runForm.distance) {
-      showToast('Lütfen mesafe ve süre girin.', 'error');
-      return;
-    }
+    if (!runForm.duration || !runForm.distance) return;
 
     const durationInt = parseInt(runForm.duration, 10);
     const distanceNum = parseFloat(runForm.distance);
     const caloriesInt = Math.round(distanceNum * currentWeight * 1.036);
     const todayStr = getLocalDateString();
+    const tempId = 'temp_run_' + Date.now();
 
     const newActivity = {
+      id: tempId,
       user_id: userId,
       type: 'running',
       duration: durationInt,
       calories: caloriesInt,
       distance: distanceNum,
       date: todayStr,
-      notes: runForm.notes
+      notes: runForm.notes,
+      created_at: new Date().toISOString()
     };
 
-    if (!dbFallback) {
-      try {
-        const { data, error } = await supabase
-          .from('activities')
-          .insert([newActivity])
-          .select();
-
-        if (error) throw error;
-        setActivities((prev) => [data[0], ...prev]);
-        showToast('Koşu kaydı eklendi.');
-      } catch (err) {
-        console.error('Supabase run insert failed:', err);
-        saveActivityToLocal(newActivity);
-      }
-    } else {
-      saveActivityToLocal(newActivity);
-    }
-
+    // Optimistik olarak arayüzü anında güncelle
+    setActivities((prev) => [newActivity, ...prev]);
     setRunForm({
       duration: '',
       distance: '',
       notes: ''
     });
-  };
-
-  // Su Kaydı Ekleme
-  const handleAddWater = async (amount) => {
-    const parsedAmount = parseInt(amount, 10);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      showToast('Geçerli bir miktar girin.', 'error');
-      return;
-    }
-
-    const newLog = {
-      user_id: userId,
-      amount: parsedAmount,
-      date: getLocalDateString()
-    };
 
     if (!dbFallback) {
-      try {
-        const { data, error } = await supabase
-          .from('water_logs')
-          .insert([newLog])
-          .select();
-
-        if (error) throw error;
-        setWaterLogs((prev) => [data[0], ...prev]);
-        showToast(`${parsedAmount}ml su eklendi.`);
-      } catch (err) {
-        console.error('Supabase water insert failed:', err);
-        saveWaterToLocal(newLog);
-      }
+      supabase
+        .from('activities')
+        .insert([{ user_id: userId, type: 'running', duration: durationInt, calories: caloriesInt, distance: distanceNum, date: todayStr, notes: newActivity.notes }])
+        .select()
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('Run insert failed, using fallback:', error);
+            saveActivityToLocalOffline(newActivity);
+          } else if (data && data[0]) {
+            setActivities((prev) => prev.map((item) => item.id === tempId ? data[0] : item));
+          }
+        });
     } else {
-      saveWaterToLocal(newLog);
+      saveActivityToLocalOffline(newActivity);
     }
-    setWaterAmount('');
   };
 
+  // Su Kaydı Ekleme (Optimistik & Hızlı)
+  const handleAddWater = async (amount) => {
+    const parsedAmount = parseInt(amount, 10);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) return;
+
+    const tempId = 'temp_water_' + Date.now();
+    const newLog = {
+      id: tempId,
+      user_id: userId,
+      amount: parsedAmount,
+      date: getLocalDateString(),
+      created_at: new Date().toISOString()
+    };
+
+    // Optimistik olarak arayüzü anında güncelle
+    setWaterLogs((prev) => [newLog, ...prev]);
+    setWaterAmount('');
+
+    if (!dbFallback) {
+      supabase
+        .from('water_logs')
+        .insert([{ user_id: userId, amount: parsedAmount, date: newLog.date }])
+        .select()
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('Water insert failed, using fallback:', error);
+            saveWaterToLocalOffline(newLog);
+          } else if (data && data[0]) {
+            setWaterLogs((prev) => prev.map((item) => item.id === tempId ? data[0] : item));
+          }
+        });
+    } else {
+      saveWaterToLocalOffline(newLog);
+    }
+  };
+
+  const saveWaterToLocalOffline = (newLog) => {
+    const localLog = { ...newLog, id: 'local_water_' + Date.now() };
+    setWaterLogs((prev) => prev.map((item) => item.id === newLog.id ? localLog : item));
+    const stored = JSON.parse(localStorage.getItem(`pulse_fallback_water_${userId}`) || '[]');
+    localStorage.setItem(`pulse_fallback_water_${userId}`, JSON.stringify([localLog, ...stored]));
+  };
+
+  // Antrenman Planlama (Takvime Ekleme)
   const handleAddWorkout = async (e) => {
     e.preventDefault();
-    if (!workoutForm.title) {
-      showToast('Lütfen antrenman adı girin.', 'error');
-      return;
-    }
+    if (!workoutForm.title) return;
 
     const currentMonStr = getLocalDateString(currentWeekMonday);
-
+    const tempId = 'temp_work_' + Date.now();
     const newWorkout = {
+      id: tempId,
       user_id: userId,
       day_of_week: parseInt(workoutForm.dayOfWeek, 10),
       title: workoutForm.title,
       description: workoutForm.description,
       time_of_day: workoutForm.timeOfDay,
       is_completed: false,
-      week_start: currentMonStr
+      week_start: currentMonStr,
+      created_at: new Date().toISOString()
     };
 
-    if (!dbFallback) {
-      try {
-        const { data, error } = await supabase
-          .from('workouts')
-          .insert([newWorkout])
-          .select();
-
-        if (error) throw error;
-        setWorkouts((prev) => [...prev, data[0]]);
-        showToast('Antrenman takvime eklendi.');
-      } catch (err) {
-        console.error('Supabase workout insert failed:', err);
-        saveWorkoutToLocal(newWorkout);
-      }
-    } else {
-      saveWorkoutToLocal(newWorkout);
-    }
-
+    // Optimistik olarak arayüzü anında güncelle
+    setWorkouts((prev) => [...prev, newWorkout]);
     setIsWorkoutModalOpen(false);
     setWorkoutForm({
       dayOfWeek: 1,
@@ -721,14 +717,30 @@ export default function App() {
       description: '',
       timeOfDay: '08:00'
     });
+
+    if (!dbFallback) {
+      supabase
+        .from('workouts')
+        .insert([{ user_id: userId, day_of_week: newWorkout.day_of_week, title: newWorkout.title, description: newWorkout.description, time_of_day: newWorkout.time_of_day, is_completed: false, week_start: currentMonStr }])
+        .select()
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('Workout insert failed, using fallback:', error);
+            saveWorkoutToLocalOffline(newWorkout);
+          } else if (data && data[0]) {
+            setWorkouts((prev) => prev.map((item) => item.id === tempId ? data[0] : item));
+          }
+        });
+    } else {
+      saveWorkoutToLocalOffline(newWorkout);
+    }
   };
 
-  const saveWorkoutToLocal = (newWork) => {
-    const localWork = { ...newWork, id: 'local_work_' + Date.now(), created_at: new Date().toISOString() };
-    const updated = [...workouts, localWork];
-    setWorkouts(updated);
-    localStorage.setItem(`pulse_fallback_workouts_${userId}`, JSON.stringify(updated));
-    showToast('Antrenman yerel takvime kaydedildi.');
+  const saveWorkoutToLocalOffline = (newWork) => {
+    const localWork = { ...newWork, id: 'local_work_' + Date.now() };
+    setWorkouts((prev) => prev.map((item) => item.id === newWork.id ? localWork : item));
+    const stored = JSON.parse(localStorage.getItem(`pulse_fallback_workouts_${userId}`) || '[]');
+    localStorage.setItem(`pulse_fallback_workouts_${userId}`, JSON.stringify([...stored, localWork]));
   };
 
   const handleToggleWorkout = async (id, isCompleted) => {
