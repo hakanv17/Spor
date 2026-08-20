@@ -1017,8 +1017,8 @@ export default function App() {
 
         {/* Global Hafta Navigasyon Barı */}
         {(activeTab === 'calendar' || activeTab === 'dashboard' || activeTab === 'kiloCalorie') && (
-          <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 1.25rem', marginBottom: '1.25rem', borderRadius: '12px' }}>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className="week-nav-bar">
+            <div className="week-nav-buttons">
               <button className="btn btn-secondary" onClick={handlePrevWeek} style={{ padding: '0.4rem 0.6rem' }} title="Önceki Hafta">
                 <ChevronLeft size={16} />
               </button>
@@ -1099,7 +1099,7 @@ export default function App() {
                 <div className="chart-header">
                   <span className="chart-title"><TrendingUp size={16} /> Egzersiz Süresi (dk)</span>
                 </div>
-                <div style={{ width: '100%', height: 220 }}>
+                <div style={{ width: '100%', height: 300 }}>
                   <ResponsiveContainer>
                     <BarChart data={weeklySportChartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
@@ -1118,7 +1118,7 @@ export default function App() {
                 <div className="chart-header">
                   <span className="chart-title"><Droplet size={16} /> Su Tüketimi (ml)</span>
                 </div>
-                <div style={{ width: '100%', height: 220 }}>
+                <div style={{ width: '100%', height: 300 }}>
                   <ResponsiveContainer>
                     <AreaChart data={weeklyWaterChartData}>
                       <defs>
@@ -1143,7 +1143,7 @@ export default function App() {
                 <div className="chart-header">
                   <span className="chart-title"><TrendingUp size={16} /> Kilo Değişim Trendi (kg)</span>
                 </div>
-                <div style={{ width: '100%', height: 220 }}>
+                <div style={{ width: '100%', height: 300 }}>
                   {weightTrendChartData.length === 0 ? (
                     <div className="empty-state" style={{ height: 180 }}>
                       <TrendingUp size={24} />
@@ -1716,7 +1716,7 @@ export default function App() {
                 <h4 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em', borderBottom: '1px solid var(--border-glass)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
                   Haftalık Enerji Dengesi (Alınan vs Yakılan kcal)
                 </h4>
-                <div style={{ width: '100%', height: 200 }}>
+                <div style={{ width: '100%', height: 280 }}>
                   <ResponsiveContainer>
                     <BarChart data={weeklyCalorieChartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
@@ -1738,7 +1738,7 @@ export default function App() {
                   <h4 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em', borderBottom: '1px solid var(--border-glass)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
                     Ağırlık Değişim Trendi (Kilo)
                   </h4>
-                  <div style={{ width: '100%', height: 160 }}>
+                  <div style={{ width: '100%', height: 240 }}>
                     <ResponsiveContainer>
                       <LineChart data={weightTrendChartData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
