@@ -772,18 +772,8 @@ export default function App() {
     localStorage.setItem(`pulse_fallback_workouts_${userId}`, JSON.stringify(updated));
   };
 
-  const handleDeleteItem = async (table, id) => {
-    const targetIdStr = String(id);
-    if (!dbFallback && !targetIdStr.startsWith('local_')) {
-      try {
-        const { error } = await supabase.from(table).delete().eq('id', id);
-        if (error) throw error;
-        showToast('Kayıt silindi.');
-      } catch (err) {
-        console.error('Supabase delete failed:', err);
-      }
-    }
-
+  const handleDeleteItem = (table, id) => {
+    // 1. Arayüzü (React State) ve LocalStorage'ı anında güncelle
     if (table === 'activities') {
       const updated = activities.filter((item) => item.id !== id);
       setActivities(updated);
@@ -804,6 +794,20 @@ export default function App() {
       const updated = calorieLogs.filter((item) => item.id !== id);
       setCalorieLogs(updated);
       localStorage.setItem(`pulse_fallback_calories_${userId}`, JSON.stringify(updated));
+    }
+
+    // 2. Veritabanı silme işlemini arka planda asenkron yürüt
+    const targetIdStr = String(id);
+    if (!dbFallback && !targetIdStr.startsWith('local_') && !targetIdStr.startsWith('temp_')) {
+      supabase
+        .from(table)
+        .delete()
+        .eq('id', id)
+        .then(({ error }) => {
+          if (error) {
+            console.error(`Background delete from ${table} failed:`, error);
+          }
+        });
     }
   };
 
