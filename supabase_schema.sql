@@ -73,3 +73,18 @@ CREATE POLICY "Allow public access to weight_logs" ON weight_logs FOR ALL USING 
 
 DROP POLICY IF EXISTS "Allow public access to calorie_logs" ON calorie_logs;
 CREATE POLICY "Allow public access to calorie_logs" ON calorie_logs FOR ALL USING (true) WITH CHECK (true);
+
+-- 6. Kullanıcı Profili ve Hedefleri Tablosu
+CREATE TABLE IF NOT EXISTS profiles (
+  user_id TEXT PRIMARY KEY,
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  height INTEGER NOT NULL DEFAULT 172,
+  target_weight NUMERIC NOT NULL DEFAULT 85.0,
+  fitness_goal TEXT NOT NULL DEFAULT 'fat_loss',
+  water_goal INTEGER NOT NULL DEFAULT 2000,
+  running_goal NUMERIC NOT NULL DEFAULT 5.0
+);
+
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public access to profiles" ON profiles;
+CREATE POLICY "Allow public access to profiles" ON profiles FOR ALL USING (true) WITH CHECK (true);

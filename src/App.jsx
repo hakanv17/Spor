@@ -272,6 +272,44 @@ export default function App() {
       console.warn('Offline sync failed, loading cached data directly:', err);
     }
 
+    // 0. Profil ve Hedef Ayarlarını Çek
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      if (data && data[0]) {
+        const prof = data[0];
+        setUserHeight(prof.height);
+        setFitnessGoal(prof.fitness_goal);
+        setDailyWaterGoal(prof.water_goal);
+        setDailyRunningGoal(parseFloat(prof.running_goal));
+        setTargetWeight(parseFloat(prof.target_weight));
+
+        // Yerel yedeği güncelle
+        localStorage.setItem('pulse_height', prof.height.toString());
+        localStorage.setItem('pulse_fitness_goal', prof.fitness_goal);
+        localStorage.setItem('pulse_water_goal', prof.water_goal.toString());
+        localStorage.setItem('pulse_running_goal', prof.running_goal.toString());
+        localStorage.setItem('pulse_target_weight', prof.target_weight.toString());
+      } else {
+        // Profil yoksa varsayılan profili veritabanında oluştur
+        const defaultProfile = {
+          user_id: userId,
+          height: userHeight,
+          target_weight: targetWeight,
+          fitness_goal: fitnessGoal,
+          water_goal: dailyWaterGoal,
+          running_goal: dailyRunningGoal
+        };
+        await supabase.from('profiles').insert([defaultProfile]);
+      }
+    } catch (err) {
+      console.warn('Profile fetch failed, using local settings fallback:', err);
+    }
+
     // 1. Egzersizleri Çek
     try {
       const { data, error } = await supabase
@@ -1146,14 +1184,40 @@ export default function App() {
   }, [currentWeekMonday, todayDateString]);
 
   // --- 9. Ayar Güncellemeleri ---
-  const handleSaveSettings = (e) => {
+  const handleSaveSettings = async (e) => {
     e.preventDefault();
+    
+    // Yerel yedeğe yaz
     localStorage.setItem('pulse_height', userHeight.toString());
     localStorage.setItem('pulse_water_goal', dailyWaterGoal.toString());
     localStorage.setItem('pulse_running_goal', dailyRunningGoal.toString());
     localStorage.setItem('pulse_fitness_goal', fitnessGoal);
     localStorage.setItem('pulse_target_weight', targetWeight.toString());
-    showToast('Ayarlar başarıyla kaydedildi.');
+
+    // Veritabanına kaydet
+    if (!dbFallback) {
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .upsert({
+            user_id: userId,
+            height: userHeight,
+            target_weight: targetWeight,
+            fitness_goal: fitnessGoal,
+            water_goal: dailyWaterGoal,
+            running_goal: dailyRunningGoal,
+            updated_at: new Date().toISOString()
+          });
+
+        if (error) throw error;
+        showToast('Ayarlar veritabanına kaydedildi.');
+      } catch (err) {
+        console.error('Failed to save profile to database:', err);
+        showToast('Ayarlar yerel olarak kaydedildi.', 'warning');
+      }
+    } else {
+      showToast('Ayarlar yerel olarak kaydedildi.');
+    }
   };
 
   const livePace = useMemo(() => {
