@@ -403,6 +403,14 @@ export default function App() {
     return { text: 'Obez (Dikkat Edilmeli)', color: '#EF4444' };
   }, [currentBMI]);
 
+  // VKİ İlerleme çubuğunda işaretçinin duracağı yüzde (15-40 VKİ aralığına göre oranlama)
+  const bmiPercentage = useMemo(() => {
+    const minBmi = 15;
+    const maxBmi = 40;
+    const pct = ((currentBMI - minBmi) / (maxBmi - minBmi)) * 100;
+    return Math.min(100, Math.max(0, pct));
+  }, [currentBMI]);
+
   // BMR (Bazal Metabolizma Hızı) ve TDEE (Günlük Harcanan Enerji) Hesaplaması (Erkek, Yaş 30)
   const bmrVal = useMemo(() => {
     return Math.round(10 * currentWeight + 6.25 * userHeight - 5 * 30 + 5);
@@ -1665,11 +1673,29 @@ export default function App() {
                     <span>Durum:</span>
                     <span style={{ color: bmiStatus.color, fontWeight: 700 }}>{bmiStatus.text}</span>
                   </div>
-                  <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden', display: 'flex' }}>
-                    <div style={{ width: '18.5%', background: '#60A5FA' }} title="Zayıf (<18.5)"></div>
-                    <div style={{ width: '6.5%', background: '#10B981' }} title="Normal (18.5-25)"></div>
-                    <div style={{ width: '5.0%', background: '#F59E0B' }} title="Kilolu (25-30)"></div>
-                    <div style={{ width: '70.0%', background: '#EF4444' }} title="Obez (>=30)"></div>
+                  <div style={{ position: 'relative', width: '100%', margin: '0.75rem 0 0.5rem 0' }}>
+                    <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', display: 'flex', overflow: 'hidden' }}>
+                      <div style={{ width: '14%', background: '#60A5FA' }} title="Zayıf (<18.5)"></div>
+                      <div style={{ width: '26%', background: '#10B981' }} title="Normal (18.5-25)"></div>
+                      <div style={{ width: '20%', background: '#F59E0B' }} title="Fazla Kilolu (25-30)"></div>
+                      <div style={{ width: '40%', background: '#EF4444' }} title="Obez (>=30)"></div>
+                    </div>
+                    {/* Kaydırıcı İşaretçi (Pill Marker) */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: `${bmiPercentage}%`,
+                        top: '-4px',
+                        width: '6px',
+                        height: '16px',
+                        background: '#fff',
+                        borderRadius: '3px',
+                        boxShadow: '0 0 6px rgba(255,255,255,0.9), 0 1px 3px rgba(0,0,0,0.6)',
+                        transform: 'translateX(-50%)',
+                        transition: 'left 0.4s ease-out'
+                      }}
+                      title={`VKİ: ${currentBMI}`}
+                    />
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
                     <span>18.5</span>
