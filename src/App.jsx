@@ -45,6 +45,11 @@ export default function App() {
     return parseInt(localStorage.getItem('pulse_height') || '172', 10);
   });
 
+  // Hakan'ın Hedef Kilosu (kg) - LocalStorage'da saklanır veya varsayılan 85.0
+  const [targetWeight, setTargetWeight] = useState(() => {
+    return parseFloat(localStorage.getItem('pulse_target_weight') || '85.0');
+  });
+
   // Hakan'ın Hedefi: 'fat_loss' (Yağ Kaybı) veya 'muscle_gain' (Kas Gelişimi)
   const [fitnessGoal, setFitnessGoal] = useState(() => {
     return localStorage.getItem('pulse_fitness_goal') || 'fat_loss';
@@ -1020,6 +1025,7 @@ export default function App() {
     localStorage.setItem('pulse_water_goal', dailyWaterGoal.toString());
     localStorage.setItem('pulse_running_goal', dailyRunningGoal.toString());
     localStorage.setItem('pulse_fitness_goal', fitnessGoal);
+    localStorage.setItem('pulse_target_weight', targetWeight.toString());
     showToast('Ayarlar başarıyla kaydedildi.');
   };
 
@@ -1275,8 +1281,8 @@ export default function App() {
                   <TrendingUp size={18} />
                 </div>
                 <div className="stat-info">
-                  <span className="stat-label">Kilo & Analiz</span>
-                  <span className="stat-value">{currentWeight.toFixed(1)} kg</span>
+                  <span className="stat-label">Kilo / Hedef</span>
+                  <span className="stat-value">{currentWeight.toFixed(1)} / {targetWeight.toFixed(1)} kg</span>
                   <span className="stat-sub" style={{ color: bmiStatus.color, fontWeight: 700 }}>VKİ: {currentBMI} ({bmiStatus.text})</span>
                 </div>
               </div>
@@ -1729,12 +1735,19 @@ export default function App() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', margin: '1rem 0' }}>
                   <div>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Mevcut Kilo:</span>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{currentWeight.toFixed(1)} kg</div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 800 }}>{currentWeight.toFixed(1)} kg</div>
                   </div>
                   <div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Vücut Kitle İndeksi:</span>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: bmiStatus.color }}>{currentBMI}</div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Hedef Kilo:</span>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-color)' }}>{targetWeight.toFixed(1)} kg</div>
                   </div>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>VKİ:</span>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: bmiStatus.color }}>{currentBMI}</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '1rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-glass)' }}>
+                  🎯 Hedefe Ulaşmak İçin: <strong>{Math.abs(currentWeight - targetWeight).toFixed(1)} kg</strong> {currentWeight > targetWeight ? 'vermelisiniz' : 'almalısınız'}.
                 </div>
 
                 <div style={{ margin: '0.5rem 0' }}>
@@ -2107,16 +2120,30 @@ export default function App() {
                   </small>
                 </div>
 
-                <div className="form-group" style={{ marginTop: '0.5rem' }}>
-                  <label>Boy Uzunluğu (cm)</label>
-                  <input
-                    type="number"
-                    value={userHeight}
-                    onChange={(e) => setUserHeight(parseInt(e.target.value, 10))}
-                    required
-                  />
-                  <small style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>VKİ (Vücut Kitle İndeksi) hesaplamak için kullanılır.</small>
+                <div className="form-grid" style={{ marginTop: '0.5rem' }}>
+                  <div className="form-group">
+                    <label>Boy Uzunluğu (cm)</label>
+                    <input
+                      type="number"
+                      value={userHeight}
+                      onChange={(e) => setUserHeight(parseInt(e.target.value, 10))}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Hedef Kilo (kg)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={targetWeight}
+                      onChange={(e) => setTargetWeight(parseFloat(e.target.value))}
+                      required
+                    />
+                  </div>
                 </div>
+                <small style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'block', marginTop: '-0.25rem', marginBottom: '0.5rem' }}>
+                  Boy ve hedef kilonuz, vücut analizi ve gelişim takibinde kullanılır.
+                </small>
 
                 <div className="form-grid">
                   <div className="form-group">
