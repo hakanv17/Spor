@@ -1347,6 +1347,26 @@ export default function App() {
 
               <div className="glass-card chart-card">
                 <div className="chart-header">
+                  <span className="chart-title"><TrendingUp size={16} /> Kalori Dengesi (Alınan vs Yakılan kcal)</span>
+                </div>
+                <div style={{ width: '100%', height: 300 }}>
+                  <ResponsiveContainer>
+                    <BarChart data={weeklyCalorieChartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
+                      <XAxis dataKey="Gün" stroke="var(--text-secondary)" fontSize={10} tickLine={false} />
+                      <YAxis stroke="var(--text-secondary)" fontSize={10} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-glass)', borderRadius: '6px' }}
+                      />
+                      <Bar dataKey="Alınan" fill="var(--text-muted)" radius={[4, 4, 0, 0]} maxBarSize={15} />
+                      <Bar dataKey="Yakılan" fill="var(--accent-color)" radius={[4, 4, 0, 0]} maxBarSize={15} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="glass-card chart-card">
+                <div className="chart-header">
                   <span className="chart-title"><TrendingUp size={16} /> Kilo Değişim Trendi (kg)</span>
                 </div>
                 <div style={{ width: '100%', height: 300 }}>
