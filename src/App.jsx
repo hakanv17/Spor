@@ -121,11 +121,7 @@ export default function App() {
 
   // --- 2. Yardımcı Fonksiyonlar ---
   function showToast(message, type = 'success') {
-    const id = Date.now() + Math.random();
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
+    // Etkileşimlerde bildirim gösterimi kapatıldı
   }
 
   // Yerel Saat Dilimine Göre YYYY-MM-DD oluşturucu
@@ -2085,13 +2081,13 @@ export default function App() {
               </form>
             </div>
 
-            {/* Supabase SQL Bilgilendirme Kutusu */}
+            {/* Veritabanı SQL Bilgilendirme Kutusu */}
             <div className="glass-card" style={{ background: 'rgba(239, 68, 68, 0.01)' }}>
               <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 700 }}>
-                <Sparkles size={14} className="text-accent-red" /> Supabase SQL Talimatları
+                <Sparkles size={14} className="text-accent-red" /> Veritabanı Tablo Kurulumu
               </h4>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem', lineHeight: '1.4' }}>
-                Verileriniz <strong>Hakan</strong> profiliyle Supabase veritabanında saklanır. Tabloları kurmak için projenin kök dizinindeki <code>supabase_schema.sql</code> kodlarını kopyalayıp Supabase SQL Editöründe çalıştırın.
+                Verileriniz <strong>Hakan</strong> profiliyle bulut veritabanında saklanır. Tabloları oluşturmak için projenin kök dizinindeki <code>supabase_schema.sql</code> dosyasının içeriğini kopyalayıp veritabanı paneli üzerindeki SQL düzenleyicide çalıştırabilirsiniz.
               </p>
             </div>
           </div>
