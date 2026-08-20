@@ -1085,6 +1085,13 @@ export default function App() {
           <span>Koşu</span>
         </button>
         <button
+          className={`mobile-nav-btn ${activeTab === 'water' ? 'active' : ''}`}
+          onClick={() => setActiveTab('water')}
+        >
+          <Droplet />
+          <span>Su</span>
+        </button>
+        <button
           className={`mobile-nav-btn ${activeTab === 'kiloCalorie' ? 'active' : ''}`}
           onClick={() => setActiveTab('kiloCalorie')}
         >
