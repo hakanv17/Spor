@@ -920,6 +920,15 @@ export default function App() {
       .reduce((sum, act) => sum + act.duration, 0);
   }, [activities, weekDaysList]);
 
+  const formattedWeeklyExerciseTime = useMemo(() => {
+    if (weeklyTotalActiveMinutes >= 60) {
+      const hours = Math.floor(weeklyTotalActiveMinutes / 60);
+      const mins = weeklyTotalActiveMinutes % 60;
+      return mins > 0 ? `${hours} sa ${mins} dk` : `${hours} sa`;
+    }
+    return `${weeklyTotalActiveMinutes} dk`;
+  }, [weeklyTotalActiveMinutes]);
+
   const weeklyTotalRunningDistance = useMemo(() => {
     return activities
       .filter((act) => act.type === 'running' && weekDaysList.includes(act.date))
@@ -1237,7 +1246,7 @@ export default function App() {
                 </div>
                 <div className="stat-info">
                   <span className="stat-label">Haftalık Egzersiz</span>
-                  <span className="stat-value">{weeklyTotalActiveMinutes} dk</span>
+                  <span className="stat-value">{formattedWeeklyExerciseTime}</span>
                   <span className="stat-sub">Hedeflenen antrenmanlar</span>
                 </div>
               </div>
