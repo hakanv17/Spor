@@ -141,9 +141,136 @@ export default function App() {
     fetchAllData();
   }, []);
 
+  const syncOfflineDataToSupabase = async () => {
+    let syncedAny = false;
+
+    // 1. Kilo Kayıtlarını Eşitle
+    try {
+      const localW = JSON.parse(localStorage.getItem(`pulse_fallback_weight_${userId}`) || '[]');
+      const tempItems = localW.filter((item) => String(item.id).startsWith('local_') || String(item.id).startsWith('temp_') || String(item.id).startsWith('local_w_'));
+      if (tempItems.length > 0) {
+        const toInsert = tempItems.map((item) => ({
+          user_id: userId,
+          weight: parseFloat(item.weight),
+          date: item.date
+        }));
+        const { error } = await supabase.from('weight_logs').insert(toInsert);
+        if (!error) {
+          const cleaned = localW.filter((item) => !String(item.id).startsWith('local_') && !String(item.id).startsWith('temp_') && !String(item.id).startsWith('local_w_'));
+          localStorage.setItem(`pulse_fallback_weight_${userId}`, JSON.stringify(cleaned));
+          syncedAny = true;
+        }
+      }
+    } catch (e) {
+      console.error('Weight sync failed:', e);
+    }
+
+    // 2. Kalori Kayıtlarını Eşitle
+    try {
+      const localC = JSON.parse(localStorage.getItem(`pulse_fallback_calories_${userId}`) || '[]');
+      const tempItems = localC.filter((item) => String(item.id).startsWith('local_') || String(item.id).startsWith('temp_') || String(item.id).startsWith('local_c_'));
+      if (tempItems.length > 0) {
+        const toInsert = tempItems.map((item) => ({
+          user_id: userId,
+          amount: parseInt(item.amount, 10),
+          notes: item.notes,
+          date: item.date
+        }));
+        const { error } = await supabase.from('calorie_logs').insert(toInsert);
+        if (!error) {
+          const cleaned = localC.filter((item) => !String(item.id).startsWith('local_') && !String(item.id).startsWith('temp_') && !String(item.id).startsWith('local_c_'));
+          localStorage.setItem(`pulse_fallback_calories_${userId}`, JSON.stringify(cleaned));
+          syncedAny = true;
+        }
+      }
+    } catch (e) {
+      console.error('Calorie sync failed:', e);
+    }
+
+    // 3. Su Kayıtlarını Eşitle
+    try {
+      const localWater = JSON.parse(localStorage.getItem(`pulse_fallback_water_${userId}`) || '[]');
+      const tempItems = localWater.filter((item) => String(item.id).startsWith('local_') || String(item.id).startsWith('temp_') || String(item.id).startsWith('local_water_'));
+      if (tempItems.length > 0) {
+        const toInsert = tempItems.map((item) => ({
+          user_id: userId,
+          amount: parseInt(item.amount, 10),
+          date: item.date
+        }));
+        const { error } = await supabase.from('water_logs').insert(toInsert);
+        if (!error) {
+          const cleaned = localWater.filter((item) => !String(item.id).startsWith('local_') && !String(item.id).startsWith('temp_') && !String(item.id).startsWith('local_water_'));
+          localStorage.setItem(`pulse_fallback_water_${userId}`, JSON.stringify(cleaned));
+          syncedAny = true;
+        }
+      }
+    } catch (e) {
+      console.error('Water sync failed:', e);
+    }
+
+    // 4. Aktivite Kayıtlarını Eşitle
+    try {
+      const localAct = JSON.parse(localStorage.getItem(`pulse_fallback_activities_${userId}`) || '[]');
+      const tempItems = localAct.filter((item) => String(item.id).startsWith('local_') || String(item.id).startsWith('temp_'));
+      if (tempItems.length > 0) {
+        const toInsert = tempItems.map((item) => ({
+          user_id: userId,
+          type: item.type,
+          duration: parseInt(item.duration, 10),
+          calories: parseInt(item.calories, 10),
+          distance: item.distance ? parseFloat(item.distance) : null,
+          date: item.date,
+          notes: item.notes
+        }));
+        const { error } = await supabase.from('activities').insert(toInsert);
+        if (!error) {
+          const cleaned = localAct.filter((item) => !String(item.id).startsWith('local_') && !String(item.id).startsWith('temp_'));
+          localStorage.setItem(`pulse_fallback_activities_${userId}`, JSON.stringify(cleaned));
+          syncedAny = true;
+        }
+      }
+    } catch (e) {
+      console.error('Activities sync failed:', e);
+    }
+
+    // 5. Antrenman Programlarını Eşitle
+    try {
+      const localWork = JSON.parse(localStorage.getItem(`pulse_fallback_workouts_${userId}`) || '[]');
+      const tempItems = localWork.filter((item) => String(item.id).startsWith('local_') || String(item.id).startsWith('temp_') || String(item.id).startsWith('local_work_'));
+      if (tempItems.length > 0) {
+        const toInsert = tempItems.map((item) => ({
+          user_id: userId,
+          day_of_week: parseInt(item.day_of_week, 10),
+          title: item.title,
+          description: item.description,
+          time_of_day: item.time_of_day,
+          is_completed: item.is_completed,
+          week_start: item.week_start
+        }));
+        const { error } = await supabase.from('workouts').insert(toInsert);
+        if (!error) {
+          const cleaned = localWork.filter((item) => !String(item.id).startsWith('local_') && !String(item.id).startsWith('temp_') && !String(item.id).startsWith('local_work_'));
+          localStorage.setItem(`pulse_fallback_workouts_${userId}`, JSON.stringify(cleaned));
+          syncedAny = true;
+        }
+      }
+    } catch (e) {
+      console.error('Workouts sync failed:', e);
+    }
+
+    return syncedAny;
+  };
+
   const fetchAllData = async () => {
     setLoading(true);
     let success = true;
+
+    // Önce yerel çevrimdışı verileri veritabanıyla eşitle
+    try {
+      await syncOfflineDataToSupabase();
+    } catch (err) {
+      console.warn('Offline sync failed, loading cached data directly:', err);
+    }
 
     // 1. Egzersizleri Çek
     try {
